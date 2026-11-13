@@ -1,0 +1,4 @@
+shipment_id,customer_id,product_id,lot_code,units
+S1,CUST-1,FIN,F,10
+S2,CUST-1,FIN,D,5
+S3,CUST-1,OAT,SAFE,7

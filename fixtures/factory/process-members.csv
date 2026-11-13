@@ -1,0 +1,10 @@
+process_id,role,product_id,lot_code
+P1,input,OAT,L1
+P1,output,FIN,D
+P2,input,OAT,L1
+P2,input,OAT,L2
+P2,output,FIN,E
+P3,input,FIN,D
+P3,input,FIN,E
+P3,input,SOUP,B9
+P3,output,FIN,F
