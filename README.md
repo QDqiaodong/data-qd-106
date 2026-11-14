@@ -59,6 +59,11 @@ CLI 参数错误或无效数据返回非零；失败原因打印到 stderr。
 - `src/recall_collect/`：公告解析、业务转换、采集 CLI 与离线影响集市。
   - `impact/`：只读采集库快照、CSV 捕获与校验、无环校验与保守传播、
     SQLite 集市构建、`python -m recall_collect.impact` 入口。
+  - `trends.py`：纯分析 API
+    `summarize_monthly(rows, start_month, end_month)`，只在内存中汇总
+    调用方传入的已接受公告（公告数、公告-批号对数、不同产品数、按原始
+    reason 精确分组的公告数），不连接数据库、不读工厂 CSV；口径与失败
+    约定见 `docs/trends.md`。
 - `fixtures/`：MIT 许可的合成输入；`fixtures/site` 为公告站，
   `fixtures/factory` 为四份工厂 CSV；来源声明见 DATA-SOURCES.md。
 - `docs/contract.md`：公告站字段、口径、边界及失败约定。
@@ -66,7 +71,9 @@ CLI 参数错误或无效数据返回非零；失败原因打印到 stderr。
   缺口口径、规范路径选择、来源边界与失败重建约定。
 - `tests/`：公告采集测试与集市测试（含端到端 CLI、受控并发快照、
   注入失败、别名拒绝、乱序与换行确定性，以及基于同步注入点的采集
-  竞态复现与单捕获校验）。
+  竞态复现与单捕获校验）；`test_trends.py` 用合成公告独立验证月度
+  趋势的跨年、边界、空月、区间外、原因分组、批号去重、总数对账、
+  稳定排序以及重复 ID 与非法输入失败。
 - `requirements*.lock`、`pyproject.toml`：环境和构建声明。
 
 本基线不承诺实时同步或生产调度。集市采用单写者离线全量重建，不含调度器或
