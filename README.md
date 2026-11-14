@@ -1,6 +1,6 @@
-# data-qd-106 · 食品召回公告采集与离线影响集市
+# data-qd-106 · 食品召回公告采集、离线影响集市与退回核销区间
 
-面向召回分析前的数据准备，分两个互不干扰的阶段：
+面向召回分析前的数据准备，分三个互不干扰的阶段：
 
 1. **公告采集**：从明确的本地模拟食品公告站抓取 HTML 文件，解析产品、批号
    和召回原因，消除多页重复并保存 SQLite 来源链路。已实现页面遍历、循环链接
@@ -9,6 +9,12 @@
    叠加工厂导出的产品映射、批次、生产谱系成员与发货四份 CSV，全量派生一个
    自包含 SQLite 集市，分析人员可直接用 SQL 查询影响范围、规范追溯依据、
    逐公告批号缺口与去重汇总。集市不重新抓站点，不修改采集库与公告冲突规则。
+3. **退回核销区间分析**（`recall_collect.writeoff`）：只读既有影响集市与一份
+   退回 CSV（唯一退回 ID、客户 ID、正整数件数、JSON 候选发货 ID 数组），把
+   每笔退回整数拆分给同客户候选发货、各发货累计不超原 `units`；在全部可行
+   分配上分别求「受影响发货并集」及每个 `recall_id` 已退件数的精确最小/最大
+   值，每个端点附完整分配见证；无解时输出「退回子集候选总容量不足」证书，
+   不当零退回。口径与失败约定见 `docs/writeoff.md`。
 
 本地模拟站是输入来源，当前不宣称连接任何真实监管机构。集市中的谱系与影响
 策略均为原创合成演示，不作实际食品安全或监管判定。
@@ -32,6 +38,10 @@ python3 -m venv .venv
   --process-members fixtures/factory/process-members.csv \
   --shipments fixtures/factory/shipments.csv \
   --output run/impact.sqlite
+.venv/bin/python -m recall_collect.writeoff \
+  --mart run/impact.sqlite \
+  --returns fixtures/factory/returns.csv \
+  --report run/writeoff.json
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -43,11 +53,15 @@ PYTHONPATH=src python3 -m recall_collect.impact --recalls-db run/recalls.sqlite 
   --products fixtures/factory/products.csv --lots fixtures/factory/lots.csv \
   --process-members fixtures/factory/process-members.csv \
   --shipments fixtures/factory/shipments.csv --output run/impact.sqlite
+PYTHONPATH=src python3 -m recall_collect.writeoff --mart run/impact.sqlite \
+  --returns fixtures/factory/returns.csv --report run/writeoff.json
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-也可在 Python 中调用：`from recall_collect.impact import build_impact_mart`。
-集市构建成功时打印汇总 JSON；参数错误或无效数据返回非零并把原因写入 stderr。
+也可在 Python 中调用：`from recall_collect.impact import build_impact_mart`、
+`from recall_collect.writeoff import analyze_writeoff_intervals`。集市构建
+成功时打印汇总 JSON；退回分析把报告 JSON 打印到 stdout 并原子写入
+`--report`。参数错误或无效数据返回非零并把原因写入 stderr。
 
 运行依赖与测试仅使用标准库；首次安装构建工具通常需要联网。每个仓库有独立
  `.venv`。安装的是源码的构建副本；编辑源码后须再次执行安装命令。
@@ -64,16 +78,25 @@ CLI 参数错误或无效数据返回非零；失败原因打印到 stderr。
     调用方传入的已接受公告（公告数、公告-批号对数、不同产品数、按原始
     reason 精确分组的公告数），不连接数据库、不读工厂 CSV；口径与失败
     约定见 `docs/trends.md`。
+  - `writeoff/`：只读既有集市的退回核销区间分析：严格读取退回 CSV、
+    整数最大流判定可行性与端点、带下界环流构造分配见证、
+    `python -m recall_collect.writeoff` 入口。
 - `fixtures/`：MIT 许可的合成输入；`fixtures/site` 为公告站，
-  `fixtures/factory` 为四份工厂 CSV；来源声明见 DATA-SOURCES.md。
+  `fixtures/factory` 为四份工厂 CSV 与一份合成退回 CSV；来源声明见
+  DATA-SOURCES.md。
 - `docs/contract.md`：公告站字段、口径、边界及失败约定。
 - `docs/impact-mart.md`：集市表结构（主键/外键/事实粒度）、传播策略、
   缺口口径、规范路径选择、来源边界与失败重建约定。
+- `docs/writeoff.md`：退回核销模型、端点/见证算法、不可行证书、报告结构、
+  只读与原子写约定。
 - `tests/`：公告采集测试与集市测试（含端到端 CLI、受控并发快照、
   注入失败、别名拒绝、乱序与换行确定性，以及基于同步注入点的采集
   竞态复现与单捕获校验）；`test_trends.py` 用合成公告独立验证月度
   趋势的跨年、边界、空月、区间外、原因分组、批号去重、总数对账、
-  稳定排序以及重复 ID 与非法输入失败。
+  稳定排序以及重复 ID 与非法输入失败；`test_writeoff.py` 用独立穷举
+  枚举与手算期望验证退回区间（局部容量不足、逐行可行但共同冲突、
+  贪心失效、重叠召回、区间不唯一、40 笔二选一与十亿件容量、不可行
+  证书、输入拒绝与只读原子性）。
 - `requirements*.lock`、`pyproject.toml`：环境和构建声明。
 
 本基线不承诺实时同步或生产调度。集市采用单写者离线全量重建，不含调度器或

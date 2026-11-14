@@ -1,0 +1,3 @@
+return_id,customer_id,units,candidate_shipment_ids
+Q1,CUST-1,6,"[""S1"", ""S2"", ""S3""]"
+Q2,CUST-1,4,"[""S2"", ""S3""]"
